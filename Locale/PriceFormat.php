@@ -6,18 +6,6 @@ use \Magento\Framework\Locale\Bundle\DataBundle;
 
 class PriceFormat extends Format
 {
-    /**
-     * @var string
-     */
-    private static $defaultNumberSet = 'latn';
-
-    /**
-     * Returns an array with price formatting info
-     *
-     * @param string $localeCode Locale code.
-     * @param string $currencyCode Currency code.
-     * @return array
-     */
     public function getPriceFormat($localeCode = null, $currencyCode = null)
     {
         $localeCode = $localeCode ?: $this->_localeResolver->getLocale();
@@ -27,19 +15,13 @@ class PriceFormat extends Format
             $currency = $this->_scopeResolver->getScope()->getCurrentCurrency();
         }
 
-        $localeData = (new DataBundle())->get($localeCode);
-        $defaultSet = $localeData['NumberElements']['default'] ?: self::$defaultNumberSet;
-        $format = $localeData['NumberElements'][$defaultSet]['patterns']['currencyFormat']
-            ?: ($localeData['NumberElements'][self::$defaultNumberSet]['patterns']['currencyFormat']
-                ?: explode(';', $localeData['NumberPatterns'][1])[0]);
-
-        $decimalSymbol = $localeData['NumberElements'][$defaultSet]['symbols']['decimal']
-            ?: ($localeData['NumberElements'][self::$defaultNumberSet]['symbols']['decimal']
-                ?: $localeData['NumberElements'][0]);
-
-        $groupSymbol = $localeData['NumberElements'][$defaultSet]['symbols']['group']
-            ?: ($localeData['NumberElements'][self::$defaultNumberSet]['symbols']['group']
-                ?: $localeData['NumberElements'][1]);
+        $formatter = new \NumberFormatter(
+            $localeCode . '@currency=' . $currency->getCode(),
+            \NumberFormatter::CURRENCY
+        );
+        $format = $formatter->getPattern();
+        $decimalSymbol = $formatter->getSymbol(\NumberFormatter::DECIMAL_SEPARATOR_SYMBOL);
+        $groupSymbol = $formatter->getSymbol(\NumberFormatter::GROUPING_SEPARATOR_SYMBOL);
 
         $pos = strpos($format, ';');
         if ($pos !== false) {
@@ -65,7 +47,6 @@ class PriceFormat extends Format
         } else {
             $group = strrpos($format, '.');
         }
-
         $integerRequired = strpos($format, '.') - strpos($format, '0');
 
         $result = [
@@ -76,7 +57,7 @@ class PriceFormat extends Format
             'decimalSymbol' => $decimalSymbol,
             'groupSymbol' => $groupSymbol,
             'groupLength' => $group,
-            'integerRequired' => $integerRequired,
+            'integerRequired' => $integerRequired > 0 ? $integerRequired : 0,
         ];
 
         return $result;
